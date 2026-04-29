@@ -44,6 +44,9 @@ pipeline {
 
 docker rm -f mysql-test || true
 
+echo "=== WORKSPACE CONTENT ==="
+ls -la $WORKSPACE
+
 docker run -d --name mysql-test \
   --network test-network \
   -e MYSQL_ROOT_PASSWORD=root \
@@ -59,7 +62,9 @@ for i in $(seq 1 30); do
     echo "Tentative $i/30..."
     sleep 3
 done
-ls -la /home/jenkins/agent/workspace/BX37/pipeline-backend
+
+ls -la $WORKSPACE
+
 docker run --rm \
   --network test-network \
   -v $WORKSPACE:/app \
