@@ -45,10 +45,23 @@ pipeline {
               -e MYSQL_DATABASE=incident_db \
               -p 3306:3306 \
               mysql:8.4.8
-            sleep 20
+
+            echo "Attente que MySQL soit prêt..."
+            for i in $(seq 1 30); do
+                if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
+                    echo "MySQL prêt !"
+                    break
+                fi
+                echo "Tentative $i/30..."
+                sleep 3
+            done
+
             DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=root DB_NAME=incident_db \
             npm ci
+
+            DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=root DB_NAME=incident_db \
             CI=true npm test -- --watchAll=false --coverage
+
             docker rm -f mysql-test
         '''
     }
