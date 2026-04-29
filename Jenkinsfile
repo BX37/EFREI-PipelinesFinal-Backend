@@ -58,10 +58,15 @@ pipeline {
                 sleep 3
             done
 
-            DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=root DB_NAME=incident_db \
-            npm ci
+            cat > .env << EOF
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=root
+DB_NAME=incident_db
+EOF
 
-            DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=root DB_NAME=incident_db \
+            npm ci
             CI=true npm test -- --watchAll=false --coverage
 
             docker rm -f mysql-test
