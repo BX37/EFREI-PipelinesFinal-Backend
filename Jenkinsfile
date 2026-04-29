@@ -19,65 +19,44 @@ pipeline {
         CONTAINER_NAME = "${IMAGE_NAME}-${params.DEPLOY_ENV}"
     }
 
-    stages {
-        stage('Cleanup') {
-            steps { cleanWs() }
-        }
-
-        stage('Checkout') {
-            steps {
-                git branch: params.GIT_BRANCH, url: params.GIT_URL
-                script {
-                    echo "Commit actuel : ${env.GIT_COMMIT}"
-                    echo "Build number : ${env.BUILD_NUMBER}"
-                    def shortCommit = env.GIT_COMMIT.take(7)
-                    env.IMAGE_TAG = env.BUILD_NUMBER + '-' + shortCommit
-                    echo "Image tag: ${env.IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Test') {
+    stage('Test') {
     steps {
         sh '''
-            docker network create test-network || true
+            docker network inspect test-network >/dev/null 2>&1 || docker network create test-network
 
-docker rm -f mysql-test || true
+            docker rm -f mysql-test || true
 
-echo "=== WORKSPACE CONTENT ==="
-ls -la $WORKSPACE
+            docker run -d --name mysql-test \
+              --network test-network \
+              -e MYSQL_ROOT_PASSWORD=root \
+              -e MYSQL_DATABASE=incident_db \
+              mysql:8.4.8
 
-docker run -d --name mysql-test \
-  --network test-network \
-  -e MYSQL_ROOT_PASSWORD=root \
-  -e MYSQL_DATABASE=incident_db \
-  mysql:8.4.8
+            echo "Attente que MySQL soit prêt..."
+            for i in $(seq 1 30); do
+                if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
+                    echo "MySQL prêt !"
+                    break
+                fi
+                echo "Tentative $i/30..."
+                sleep 3
+            done
 
-echo "Attente que MySQL soit prêt..."
-for i in $(seq 1 30); do
-    if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
-        echo "MySQL prêt !"
-        break
-    fi
-    echo "Tentative $i/30..."
-    sleep 3
-done
+            echo "=== BUILD IMAGE TEST ==="
+            docker build -t backend-test .
 
-ls -la $WORKSPACE
+            echo "=== RUN TESTS ==="
+            docker run --rm \
+              --network test-network \
+              -e DB_HOST=mysql-test \
+              -e DB_PORT=3306 \
+              -e DB_USER=root \
+              -e DB_PASSWORD=root \
+              -e DB_NAME=incident_db \
+              backend-test \
+              sh -c "npm install && CI=true npm test -- --watchAll=false --coverage"
 
-docker run --rm \
-  --network test-network \
-  -v $(pwd):/app \
-  -w /app \
-  -e DB_HOST=mysql-test \
-  -e DB_PORT=3306 \
-  -e DB_USER=root \
-  -e DB_PASSWORD=root \
-  -e DB_NAME=incident_db \
-  node:20 \
-  sh -c "ls -la && npm install && CI=true npm test -- --watchAll=false --coverage"
-
-docker rm -f mysql-test
+            docker rm -f mysql-test || true
         '''
     }
 }
