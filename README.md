@@ -41,7 +41,7 @@ npm test
 ```bash
 node server.js
 ```
-The server runs on `http://localhost:3001` by default.
+The server runs on `http://localhost:3000` by default.
 
 ---
 

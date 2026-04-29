@@ -16,6 +16,6 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copie les sources (pas de build nécessaire, c'est du JS pur ESM)
 COPY . .
 
-EXPOSE 3001
+EXPOSE 3000
 
 ENTRYPOINT ["node", "server.js"]

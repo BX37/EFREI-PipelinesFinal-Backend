@@ -13,7 +13,7 @@ pipeline {
         string(name: 'VM_USER', defaultValue: 'azureuser', description: 'Nom d\'utilisateur pour se connecter à la VM cible')
     }
     environment {
-        IMAGE_NAME     = 'efrei-projet-fil-rouge-cicd-backend'
+        IMAGE_NAME     = 'efrei-pipelinesfinal-backend'
         IMAGE          = "${params.REGISTRY}/${IMAGE_NAME}"
         COMPOSE_FILE   = "docker-compose.${params.DEPLOY_ENV}.yml"
         CONTAINER_NAME = "${IMAGE_NAME}-${params.DEPLOY_ENV}"
@@ -112,9 +112,9 @@ pipeline {
                             echo "$REGISTRY_PASS" | ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST \
                                 "docker login $REGISTRY -u $REGISTRY_USER --password-stdin"
 
-                            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "mkdir -p ~/.deploy && rm -f ~/.deploy/backend-${DEPLOY_ENV}.env"
+                            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "mkdir -p ~/.deploy && rm -f ~/.deploy/bx37-backend-${DEPLOY_ENV}.env"
 
-                            scp -o StrictHostKeyChecking=no $ENV_FILE $VM_USER@$VM_HOST:~/.deploy/backend-${DEPLOY_ENV}.env
+                            scp -o StrictHostKeyChecking=no $ENV_FILE $VM_USER@$VM_HOST:~/.deploy/bx37-backend-${DEPLOY_ENV}.env
                             scp -o StrictHostKeyChecking=no $COMPOSE_FILE $VM_USER@$VM_HOST:~/.deploy/$COMPOSE_FILE
 
                             ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "

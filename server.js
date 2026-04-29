@@ -24,9 +24,9 @@ async function start() {
         await sequelize.sync();
         console.log('Database connected');
 
-        app.listen(3001, () => {
-            console.log('Server running on http://localhost:3001');
-        });
+        app.listen(process.env.SERVER_PORT ?? 3000, process.env.SERVER_HOST ?? '0.0.0.0', () => {
+    console.log(`Server running on http://${process.env.SERVER_HOST}:${process.env.SERVER_PORT}`);
+});
     } catch (err) {
         console.error(err);
     }
