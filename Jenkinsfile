@@ -59,10 +59,10 @@ for i in $(seq 1 30); do
     echo "Tentative $i/30..."
     sleep 3
 done
-
+ls -la /home/jenkins/agent/workspace/BX37/pipeline-backend
 docker run --rm \
   --network test-network \
-  -v $(pwd):/app \
+  -v $WORKSPACE:/app \
   -w /app \
   -e DB_HOST=mysql-test \
   -e DB_PORT=3306 \
@@ -70,7 +70,7 @@ docker run --rm \
   -e DB_PASSWORD=root \
   -e DB_NAME=incident_db \
   node:20 \
-  sh -c "npm install && CI=true npm test -- --watchAll=false --coverage"
+  sh -c "ls -la && npm install && CI=true npm test -- --watchAll=false --coverage"
 
 docker rm -f mysql-test
         '''
