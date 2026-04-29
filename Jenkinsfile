@@ -67,7 +67,7 @@ ls -la $WORKSPACE
 
 docker run --rm \
   --network test-network \
-  -v $WORKSPACE:/app \
+  -v $(pwd):/app \
   -w /app \
   -e DB_HOST=mysql-test \
   -e DB_PORT=3306 \
