@@ -5,7 +5,7 @@ import { sequelize } from '../db.js';
 describe('Technicien integration tests', () => {
     beforeAll(async () => {
         await sequelize.sync({ force: true });
-    });
+    }, 30000);
 
     afterAll(async () => {
         await sequelize.close();
@@ -29,7 +29,7 @@ describe('Technicien integration tests', () => {
             firstname: newTechnicien.firstname,
             email: newTechnicien.email,
             phone: newTechnicien.phone
-        });
+        },30000);
         expect(createRes.body.id).toBeGreaterThan(0);
 
         const technicienId = createRes.body.id;

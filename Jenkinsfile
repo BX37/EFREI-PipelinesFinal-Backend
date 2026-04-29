@@ -38,13 +38,21 @@ pipeline {
         }
 
         stage('Test') {
-            steps {
-                sh '''
-                    npm ci
-                    CI=true npm test -- --watchAll=false --coverage
-                '''
-            }
-        }
+    steps {
+        sh '''
+            docker run -d --name mysql-test \
+              -e MYSQL_ROOT_PASSWORD=root \
+              -e MYSQL_DATABASE=incident_db \
+              -p 3306:3306 \
+              mysql:8.4.8
+            sleep 20
+            DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=root DB_NAME=incident_db \
+            npm ci
+            CI=true npm test -- --watchAll=false --coverage
+            docker rm -f mysql-test
+        '''
+    }
+}
 
         stage('SonarQube Analysis') {
             steps {
