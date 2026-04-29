@@ -40,6 +40,8 @@ pipeline {
         stage('Test') {
     steps {
         sh '''
+            docker rm -f mysql-test || true
+
             docker run -d --name mysql-test \
               -e MYSQL_ROOT_PASSWORD=root \
               -e MYSQL_DATABASE=incident_db \
