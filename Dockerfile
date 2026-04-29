@@ -1,23 +1,21 @@
-FROM node:22-alpine AS builder
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . .
-RUN npm run build
-
-FROM node:22-alpine AS runtime
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY --from=builder /app/dist /app/dist
-COPY --from=builder /app/public /app/public
+# ─────────────────────────────────────────
+FROM node:22-alpine AS runtime
 
-EXPOSE 3000
+WORKDIR /app
 
-ENTRYPOINT ["node", "dist/src/main.js"]
+# Copie uniquement les dépendances de prod
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copie les sources (pas de build nécessaire, c'est du JS pur ESM)
+COPY . .
+
+EXPOSE 3001
+
+ENTRYPOINT ["node", "server.js"]

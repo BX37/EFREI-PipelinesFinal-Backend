@@ -3,7 +3,7 @@ services:
     image: registry.spokayhub.top/efrei-projet-fil-rouge-cicd-backend:${IMAGE_TAG:-latest}
     container_name: efrei-projet-fil-rouge-cicd-backend-stg
     env_file:
-      - ./backend-stg.env
+      - ./bx37-backend-stg.env
     environment:
       NODE_ENV: production
     ports:
