@@ -70,7 +70,7 @@ docker run --rm \
   -e DB_PASSWORD=root \
   -e DB_NAME=incident_db \
   node:20 \
-  sh -c "npm ci && CI=true npm test -- --watchAll=false --coverage"
+  sh -c "npm install && CI=true npm test -- --watchAll=false --coverage"
 
 docker rm -f mysql-test
         '''
