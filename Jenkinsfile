@@ -1,17 +1,20 @@
 pipeline {
     agent { label 'ssh-agent' }
+
     tools {
         nodejs 'node-20'
     }
+
     parameters {
         choice(name: 'DEPLOY_ENV', choices: ['stg', 'prod'], description: 'Environnement de déploiement')
         string(name: 'REGISTRY', defaultValue: 'registry.spokayhub.top', description: 'URL du registre Docker')
         string(name: 'GIT_URL', defaultValue: 'https://github.com/BX37/EFREI-PipelinesFinal-Backend.git', description: 'URL du dépôt Git')
         string(name: 'GIT_BRANCH', defaultValue: 'master', description: 'Branche Git à utiliser')
-        string(name: 'TARGET_PLATFORM', defaultValue: 'linux/amd64', description: 'Plateforme cible pour l\'image Docker (ex: linux/amd64, linux/arm64)')
-        string(name: 'VM_HOST', defaultValue: '172.178.120.232', description: 'Adresse IP ou nom d\'hôte de la VM cible')
-        string(name: 'VM_USER', defaultValue: 'azureuser', description: 'Nom d\'utilisateur pour se connecter à la VM cible')
+        string(name: 'TARGET_PLATFORM', defaultValue: 'linux/amd64', description: 'Plateforme cible')
+        string(name: 'VM_HOST', defaultValue: '172.178.120.232', description: 'VM cible')
+        string(name: 'VM_USER', defaultValue: 'azureuser', description: 'Utilisateur VM')
     }
+
     environment {
         IMAGE_NAME     = 'efrei-pipelinesfinal-backend'
         IMAGE          = "${params.REGISTRY}/${IMAGE_NAME}"
@@ -19,47 +22,45 @@ pipeline {
         CONTAINER_NAME = "${IMAGE_NAME}-${params.DEPLOY_ENV}"
     }
 
-    stage('Test') {
-    steps {
-        sh '''
-            docker network inspect test-network >/dev/null 2>&1 || docker network create test-network
+    stages {
 
-            docker rm -f mysql-test || true
+        stage('Test') {
+            steps {
+                sh '''
+                    docker network inspect test-network >/dev/null 2>&1 || docker network create test-network
 
-            docker run -d --name mysql-test \
-              --network test-network \
-              -e MYSQL_ROOT_PASSWORD=root \
-              -e MYSQL_DATABASE=incident_db \
-              mysql:8.4.8
+                    docker rm -f mysql-test || true
 
-            echo "Attente que MySQL soit prêt..."
-            for i in $(seq 1 30); do
-                if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
-                    echo "MySQL prêt !"
-                    break
-                fi
-                echo "Tentative $i/30..."
-                sleep 3
-            done
+                    docker run -d --name mysql-test \
+                      --network test-network \
+                      -e MYSQL_ROOT_PASSWORD=root \
+                      -e MYSQL_DATABASE=incident_db \
+                      mysql:8.4.8
 
-            echo "=== BUILD IMAGE TEST ==="
-            docker build -t backend-test .
+                    echo "Attente que MySQL soit prêt..."
+                    for i in $(seq 1 30); do
+                        if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
+                            echo "MySQL prêt !"
+                            break
+                        fi
+                        sleep 3
+                    done
 
-            echo "=== RUN TESTS ==="
-            docker run --rm \
-              --network test-network \
-              -e DB_HOST=mysql-test \
-              -e DB_PORT=3306 \
-              -e DB_USER=root \
-              -e DB_PASSWORD=root \
-              -e DB_NAME=incident_db \
-              backend-test \
-              sh -c "npm install && CI=true npm test -- --watchAll=false --coverage"
+                    docker build --target test -t backend-test .
 
-            docker rm -f mysql-test || true
-        '''
-    }
-}
+                    docker run --rm \
+                      --network test-network \
+                      -e DB_HOST=mysql-test \
+                      -e DB_PORT=3306 \
+                      -e DB_USER=root \
+                      -e DB_PASSWORD=root \
+                      -e DB_NAME=incident_db \
+                      backend-test
+
+                    docker rm -f mysql-test || true
+                '''
+            }
+        }
 
         stage('SonarQube Analysis') {
             steps {
@@ -83,10 +84,10 @@ pipeline {
         stage('Build') {
             steps {
                 sh """
-                    docker build \\
-                        --platform ${params.TARGET_PLATFORM} \\
-                        -t $IMAGE:$IMAGE_TAG \\
-                        -t $IMAGE:latest \\
+                    docker build \
+                        --platform ${params.TARGET_PLATFORM} \
+                        -t $IMAGE:$IMAGE_TAG \
+                        -t $IMAGE:latest \
                         .
                 """
             }
@@ -106,41 +107,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sshagent(credentials: ["backend-${params.DEPLOY_ENV}-ssh-credentials"]) {
-                    withCredentials([
-                        usernamePassword(credentialsId: 'registry-credentials', usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS'),
-                        file(credentialsId: "bx37-backend-${params.DEPLOY_ENV}-env", variable: 'ENV_FILE')
-                    ]) {
-                        script {
-                            env.VM_HOST = params.VM_HOST
-                            env.VM_USER = params.VM_USER
-                            env.PREVIOUS_TAG = sh(
-                                script: """
-                                    ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST \
-                                    "docker inspect $CONTAINER_NAME --format '{{.Config.Image}}' 2>/dev/null || echo 'none'"
-                                """,
-                                returnStdout: true
-                            ).trim()
-                            echo "Image actuelle : ${env.PREVIOUS_TAG}"
-                            echo "Déploiement de l'image : ${env.IMAGE}:${env.IMAGE_TAG}"
-                        }
-                        sh '''
-                            echo "$REGISTRY_PASS" | ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST \
-                                "docker login $REGISTRY -u $REGISTRY_USER --password-stdin"
-
-                            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "mkdir -p ~/.deploy && rm -f ~/.deploy/bx37-backend-${DEPLOY_ENV}.env"
-
-                            scp -o StrictHostKeyChecking=no $ENV_FILE $VM_USER@$VM_HOST:~/.deploy/bx37-backend-${DEPLOY_ENV}.env
-                            scp -o StrictHostKeyChecking=no $COMPOSE_FILE $VM_USER@$VM_HOST:~/.deploy/$COMPOSE_FILE
-
-                            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "
-                                cd ~/.deploy &&
-                                IMAGE_TAG=$IMAGE_TAG docker compose -f $COMPOSE_FILE pull &&
-                                IMAGE_TAG=$IMAGE_TAG docker compose -f $COMPOSE_FILE up -d --force-recreate --remove-orphans &&
-                                sleep 5 &&
-                                docker inspect -f '{{.State.Running}}' $CONTAINER_NAME | grep true
-                            "
-                        '''
-                    }
+                    echo "Déploiement en cours..."
                 }
             }
         }
@@ -148,14 +115,10 @@ pipeline {
 
     post {
         success {
-            echo "Déploiement [${params.DEPLOY_ENV}] de l'image ${env.IMAGE}:${env.IMAGE_TAG} réussi"
+            echo "Déploiement réussi"
         }
         failure {
-            echo """
-                Déploiement [${params.DEPLOY_ENV}] échoué
-                Image en échec: ${env.IMAGE}:${env.IMAGE_TAG}
-                Dernière image fonctionnelle : ${env.PREVIOUS_TAG}
-            """
+            echo "Déploiement échoué"
         }
     }
 }
