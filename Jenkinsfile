@@ -40,34 +40,39 @@ pipeline {
         stage('Test') {
     steps {
         sh '''
-            docker rm -f mysql-test || true
+            docker network create test-network || true
 
-            docker run -d --name mysql-test \
-              -e MYSQL_ROOT_PASSWORD=root \
-              -e MYSQL_DATABASE=incident_db \
-              -p 3306:3306 \
-              mysql:8.4.8
+docker rm -f mysql-test || true
 
-            echo "Attente que MySQL soit prêt..."
-            for i in $(seq 1 30); do
-                if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
-                    echo "MySQL prêt !"
-                    break
-                fi
-                echo "Tentative $i/30..."
-                sleep 3
-            done
+docker run -d --name mysql-test \
+  --network test-network \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=incident_db \
+  mysql:8.4.8
 
-          export DB_HOST=mysql-test
-export DB_PORT=3306
-export DB_USER=root
-export DB_PASSWORD=root
-export DB_NAME=incident_db
+echo "Attente que MySQL soit prêt..."
+for i in $(seq 1 30); do
+    if docker exec mysql-test mysqladmin ping -h localhost -proot --silent 2>/dev/null; then
+        echo "MySQL prêt !"
+        break
+    fi
+    echo "Tentative $i/30..."
+    sleep 3
+done
 
-            npm ci
-            CI=true npm test -- --watchAll=false --coverage
+docker run --rm \
+  --network test-network \
+  -v $(pwd):/app \
+  -w /app \
+  -e DB_HOST=mysql-test \
+  -e DB_PORT=3306 \
+  -e DB_USER=root \
+  -e DB_PASSWORD=root \
+  -e DB_NAME=incident_db \
+  node:20 \
+  sh -c "npm ci && CI=true npm test -- --watchAll=false --coverage"
 
-            docker rm -f mysql-test
+docker rm -f mysql-test
         '''
     }
 }
