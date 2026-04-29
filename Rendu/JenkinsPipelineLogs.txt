@@ -1,0 +1,79 @@
+Started by user bx37
+
+Obtained Jenkinsfile from git https://github.com/bx37/bx37-pipeline-back.git
+[Pipeline] Start of Pipeline
+[Pipeline] node
+Running on ssh-agent
+in /home/jenkins/agent/workspace/bx37/bx37-pipeline-back
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Declarative: Checkout SCM)
+[Pipeline] checkout
+Selected Git installation does not exist. Using Default
+Fetching changes from the remote Git repository
+Checking out Revision 117d90c62f74b6c529e4233386d27577f50508ba (refs/remotes/origin/main)
+
+> git rev-parse --resolve-git-dir /home/jenkins/agent/workspace/bx37/bx37-pipeline-back/.git
+> git config remote.origin.url https://github.com/bx37/bx37-pipeline-back.git
+> Fetching upstream changes from https://github.com/bx37/bx37-pipeline-back.git
+> git fetch --tags --force --progress -- https://github.com/bx37/bx37-pipeline-back.git
+
+[Pipeline] stage (Checkout)
+Cloning repository https://github.com/bx37/bx37-pipeline-back.git
+
+Commit actuel : 117d90c62f74b6c529e4233386d27577f50508ba
+Build number : 11
+Image tag: 11-117d90c
+
+[Pipeline] stage (Test)
+
+* npm ci
+* CI=true NODE_ENV=test npm test -- --watchAll=false --coverage
+
+PASS **tests**/technicien.integration.test.js
+PASS **tests**/incident.routes.test.js
+
+Test Suites: 2 passed, 2 total
+Tests:       7 passed, 7 total
+
+[Pipeline] stage (SonarQube Analysis)
+Injecting SonarQube environment variables using the configuration: sonar-bx37
+
+Project key: bx37-pipeline-back
+Base dir: /home/jenkins/agent/workspace/bx37/bx37-pipeline-back
+
+ANALYSIS SUCCESSFUL
+https://sonar.bx37hub.top/dashboard?id=bx37-pipeline-back
+
+[Pipeline] stage (Quality Gate)
+Quality gate is 'OK'
+
+[Pipeline] stage (Build)
+
+* docker build --platform linux/amd64 
+  -t registry.bx37hub.top/bx37-pipeline-back:11-117d90c 
+  -t registry.bx37hub.top/bx37-pipeline-back:latest .
+
+[Pipeline] stage (Push)
+
+* docker push registry.bx37hub.top/bx37-pipeline-back:11-117d90c
+* docker push registry.bx37hub.top/bx37-pipeline-back:latest
+
+[Pipeline] stage (Deploy)
+
+Image actuelle : registry.bx37hub.top/bx37-pipeline-back:10-117d90c
+Déploiement de l'image : registry.bx37hub.top/bx37-pipeline-back:11-117d90c
+
+Container mysql-bx37-stg Starting
+Container mysql-bx37-stg Healthy
+
+Container bx37-pipeline-back-stg Starting
+Container bx37-pipeline-back-stg Started
+
+true
+
+[Pipeline] stage (Post Actions)
+Déploiement [stg] de l'image registry.bx37hub.top/bx37-pipeline-back:11-117d90c réussi
+
+[Pipeline] End of Pipeline
+Finished: SUCCESS
