@@ -58,13 +58,11 @@ pipeline {
                 sleep 3
             done
 
-            cat > .env << EOF
-DB_HOST=mysql-test
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=root
-DB_NAME=incident_db
-EOF
+          export DB_HOST=mysql-test
+export DB_PORT=3306
+export DB_USER=root
+export DB_PASSWORD=root
+export DB_NAME=incident_db
 
             npm ci
             CI=true npm test -- --watchAll=false --coverage
